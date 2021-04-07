@@ -124,6 +124,10 @@ void Process::updateProcess(uint64_t current_time)
 {
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
+    turn_time = current_time - start_time;
+    if(state == Process::State::Ready){//if in the ready queue
+        
+    }
 }
 
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
