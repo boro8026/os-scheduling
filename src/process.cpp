@@ -25,6 +25,8 @@ Process::Process(ProcessDetails details, uint64_t current_time)
     wait_time = 0;
     cpu_time = 0;
     remain_time = 0;
+    startOfLastBurst = 0;
+    prevState = Process::State::Terminated;
     for (i = 0; i < num_bursts; i+=2)
     {
         remain_time += burst_times[i];
@@ -124,10 +126,34 @@ void Process::updateProcess(uint64_t current_time)
 {
     // use `current_time` to update turnaround time, wait time, burst times, 
     // cpu time, and remaining time
-    turn_time = current_time - start_time;
-    if(state == Process::State::Ready){//if in the ready queue
-        
+    
+    turn_time = current_time - launch_time;
+    setBurstStartTime(current_time);
+    
+    if(prevState == Process::State::Ready){
+        wait_time = wait_time + (current_time - startOfLastBurst);
     }
+    else if(prevState == Process::State::Running){
+        cpu_time = cpu_time + (current_time - startOfLastBurst);
+        if(getState() == Process::State::Terminated){
+            remain_time = 0;
+        }
+        else{
+            remain_time = remain_time - (current_time - startOfLastBurst);
+        }
+        if(isInterrupted()){
+            updateBurstTime(current_burst,burst_times[current_burst]-(current_time-startOfLastBurst));
+        }
+        else{
+            current_burst++;
+        }
+    }
+    else if(prevState == Process::State::IO){
+        current_burst++;
+    }
+
+    startOfLastBurst = current_time;
+    prevState = getState();
 }
 
 void Process::updateBurstTime(int burst_idx, uint32_t new_time)
@@ -135,6 +161,17 @@ void Process::updateBurstTime(int burst_idx, uint32_t new_time)
     burst_times[burst_idx] = new_time;
 }
 
+uint16_t Process::getCurrentBurst() const{
+    return current_burst;
+}
+
+double Process::getCurrentBurstTime() const{
+    return burst_times[current_burst];
+}
+
+int Process::getNumBursts() const{
+    return num_bursts;
+}
 
 // Comparator methods: used in std::list sort() method
 // No comparator needed for FCFS or RR (ready queue never sorted)
@@ -142,13 +179,17 @@ void Process::updateBurstTime(int burst_idx, uint32_t new_time)
 // SJF - comparator for sorting read queue based on shortest remaining CPU time
 bool SjfComparator::operator ()(const Process *p1, const Process *p2)
 {
-    // your code here!
-    return false; // change this!
+    if(p1->getRemainingTime() > p2->getRemainingTime()){
+        return false;
+    }
+    return true;
 }
 
 // PP - comparator for sorting read queue based on priority
 bool PpComparator::operator ()(const Process *p1, const Process *p2)
 {
-    // your code here!
-    return false; // change this!
+    if(p1->getPriority() >= p2->getPriority()){
+        return false;
+    }
+    return true;
 }
